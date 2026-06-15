@@ -8,7 +8,13 @@ from datetime import datetime
 from scipy.sparse import hstack
 
 app = Flask(__name__)
-app.secret_key = "cinevault_secret_2024"
+# app.secret_key = "cinevault_secret_2024"
+import os
+
+app.secret_key = os.getenv("SECRET_KEY")
+
+MONGO_URI = os.getenv("MONGO_URI")
+client = MongoClient(MONGO_URI)
 
 # =====================================================
 # MongoDB Connection
