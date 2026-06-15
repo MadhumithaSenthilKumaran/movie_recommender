@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ movie.title }} — CineVault</title>
+
+  <script>
+    (function () {
+      var t = localStorage.getItem('cv-theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+  <style>
+    /* ── History panel entry styles ── */
+    .history-entry {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; border-radius: 8px;
+      cursor: pointer; text-decoration: none; color: inherit;
+      transition: background 0.15s;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .history-entry:last-child { border-bottom: none; }
+    .history-entry:hover { background: rgba(255,255,255,0.06); }
+    .history-entry-icon {
+      width: 32px; height: 32px; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; font-size: 14px;
+    }
+    .history-entry-icon.type-title { background: rgba(232,201,122,0.13); }
+    .history-entry-icon.type-genre { background: rgba(93,202,165,0.13); }
+    .history-entry-icon.type-cast  { background: rgba(175,107,236,0.13); }
+    .history-entry-text { flex: 1; min-width: 0; }
+    .history-entry-query {
+      font-size: 0.85rem; font-weight: 500;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .history-entry-meta { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+    .h-badge {
+      font-size: 0.62rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      padding: 1px 5px; border-radius: 3px;
+    }
+    .h-badge.type-title { background: rgba(232,201,122,0.18); color: #c9a84c; }
+    .h-badge.type-genre { background: rgba(93,202,165,0.18); color: #5dcaa5; }
+    .h-badge.type-cast  { background: rgba(175,107,236,0.18); color: #b87de8; }
+    .history-entry-time { font-size: 0.7rem; opacity: 0.45; white-space: nowrap; }
+    .history-remove-btn {
+      background: none; border: none; cursor: pointer;
+      color: rgba(255,255,255,0.25); font-size: 13px;
+      padding: 2px 4px; border-radius: 4px; line-height: 1;
+      transition: color 0.15s; flex-shrink: 0;
+    }
+    .history-remove-btn:hover { color: #c0392b; }
+    .history-panel-filter { display: flex; gap: 6px; padding: 10px 14px 4px; flex-wrap: wrap; }
+    .h-filter-btn {
+      background: transparent; border: 1px solid rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.45); font-size: 0.72rem;
+      padding: 3px 10px; border-radius: 20px; cursor: pointer;
+      font-family: 'DM Sans', sans-serif; transition: all 0.15s;
+    }
+    .h-filter-btn:hover { border-color: rgba(255,255,255,0.22); color: rgba(255,255,255,0.8); }
+    .h-filter-btn.active {
+      background: rgba(232,201,122,0.13);
+      border-color: rgba(232,201,122,0.4);
+      color: #e8c97a;
+    }
+
+    /* ══════════════════════════════════════════
+       MOVIE HERO — Cinematic Layout
+    ══════════════════════════════════════════ */
+
+    .movie-hero {
+      position: relative;
+      display: flex;
+      align-items: flex-start;
+      gap: 52px;
+      padding: 56px 64px 64px 64px;
+      overflow: hidden;
+      min-height: 480px;
+    }
+
+    /* Ambient background glow — pulls from left where poster sits */
+    .movie-hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 55% 90% at 18% 50%, rgba(90, 48, 181, 0.22) 0%, transparent 65%),
+        radial-gradient(ellipse 35% 60% at 85% 20%, rgba(124, 79, 216, 0.10) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    [data-theme="light"] .movie-hero::before {
+      background:
+        radial-gradient(ellipse 55% 90% at 18% 50%, rgba(160, 124, 240, 0.12) 0%, transparent 65%);
+    }
+
+    /* Subtle film-grain texture overlay */
+    .movie-hero::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+      background-size: 180px 180px;
+      opacity: 0.4;
+      pointer-events: none;
+    }
+
+    /* ── Poster ── */
+    .movie-hero-poster {
+      position: relative;
+      z-index: 1;
+      flex-shrink: 0;
+      width: 240px;
+    }
+
+    .movie-hero-poster img {
+      width: 100%;
+      aspect-ratio: 2/3;
+      object-fit: cover;
+      border-radius: 16px;
+      display: block;
+      box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.55),
+        0 0 0 1px rgba(124, 79, 216, 0.25),
+        0 24px 64px rgba(90, 48, 181, 0.25);
+      transition: box-shadow 0.3s ease;
+    }
+
+    [data-theme="light"] .movie-hero-poster img {
+      box-shadow:
+        0 8px 24px rgba(90, 48, 181, 0.18),
+        0 0 0 1px rgba(124, 79, 216, 0.15);
+    }
+
+    /* Poster shimmer badge */
+    /* .movie-hero-poster::after {
+      content: '▶ Now Viewing';
+      position: absolute;
+      top: -12px;
+      left: 12px;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--v300);
+      background: var(--bg-surface);
+      border: 1px solid var(--border-card);
+      padding: 4px 10px;
+      border-radius: 50px;
+    } */
+
+    /* ── Details ── */
+    .movie-hero-details {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      min-width: 0;
+      padding-top: 20px;
+    }
+
+    .movie-hero-details h1 {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(32px, 4.5vw, 56px);
+      line-height: 1.05;
+      color: var(--text-hi);
+      margin-bottom: 24px;
+      letter-spacing: -0.01em;
+    }
+
+    /* Decorative left-rule before title */
+    .movie-title-wrap {
+      border-left: 3px solid var(--v500);
+      padding-left: 20px;
+      margin-bottom: 28px;
+    }
+
+    .movie-eyebrow {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--v400);
+      margin-bottom: 10px;
+    }
+
+    /* Meta detail rows */
+    .detail-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-bottom: 32px;
+    }
+
+    .detail-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    .detail-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-lo);
+      min-width: 48px;
+      padding-top: 5px;
+      flex-shrink: 0;
+    }
+
+    .detail-value {
+      font-size: 14px;
+      color: var(--text-mid);
+      line-height: 1.6;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .detail-value.year-val {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 22px;
+      letter-spacing: 1px;
+      color: var(--v300);
+    }
+
+    .detail-value .chip {
+      font-size: 12px;
+      padding: 3px 12px;
+    }
+
+    /* Divider between details and actions */
+    .hero-divider {
+      height: 1px;
+      background: linear-gradient(to right, var(--v600), rgba(124, 79, 216, 0.06), transparent);
+      margin-bottom: 28px;
+    }
+
+    /* Hero action buttons row */
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    /* ══════════════════════════════════════════
+       RECOMMENDATIONS SECTION HEADER
+    ══════════════════════════════════════════ */
+    .rec-section-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 64px;
+      margin-bottom: 28px;
+    }
+
+    .rec-section-eyebrow {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: var(--v400);
+      white-space: nowrap;
+    }
+
+    .rec-section-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 26px;
+      color: var(--text-hi);
+      white-space: nowrap;
+    }
+
+    .rec-section-line {
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(to right, var(--border-card), transparent);
+    }
+
+    /* Because-you-watched tag */
+    .rec-because-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-lo);
+      background: rgba(124, 79, 216, 0.08);
+      border: 1px solid var(--border-card);
+      padding: 4px 14px;
+      border-radius: 50px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .rec-because-tag strong {
+      color: var(--v300);
+      font-weight: 600;
+      max-width: 160px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* ── Movies section on this page ── */
+    .movies-section {
+      padding: 0 64px 64px;
+    }
+
+    /* ══════════════════════════════════════════
+       RESPONSIVE
+    ══════════════════════════════════════════ */
+    @media (max-width: 900px) {
+      .movie-hero {
+        flex-direction: column;
+        padding: 36px 24px 48px;
+        gap: 32px;
+        align-items: center;
+      }
+      .movie-hero-poster {
+        width: 180px;
+      }
+      .movie-hero-poster::after { display: none; }
+      .movie-title-wrap { border-left: none; padding-left: 0; }
+      .movie-hero-details { padding-top: 0; }
+      .movie-hero-details h1 { text-align: center; }
+      .detail-rows { align-items: flex-start; }
+      .hero-actions { justify-content: center; }
+      .rec-section-header { padding: 0 24px; }
+      .movies-section { padding: 0 24px 48px; }
+    }
+
+    @media (max-width: 600px) {
+      .movie-hero {
+        padding: 28px 16px 40px;
+      }
+      .rec-because-tag { display: none; }
+      .movies-section { padding: 0 16px 40px; }
+      .rec-section-header { padding: 0 16px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="panel-overlay" id="panelOverlay" onclick="closePanels()"></div>
+
+  <!-- WATCHLIST PANEL -->
+  <aside class="side-panel" id="watchlistPanel" role="dialog" aria-label="Watchlist">
+    <div class="panel-head">
+      <span class="panel-title">My Watchlist</span>
+      <button class="panel-close" onclick="closePanels()">✕</button>
+    </div>
+    <div class="panel-body" id="watchlistBody">
+      <div class="panel-loading">Loading…</div>
+    </div>
+    <div class="panel-footer">
+      <button class="clear-btn" onclick="clearWatchlistAll()">🗑 &nbsp;Clear All</button>
+    </div>
+  </aside>
+
+  <!-- HISTORY PANEL -->
+  <aside class="side-panel" id="historyPanel" role="dialog" aria-label="Search History">
+    <div class="panel-head">
+      <span class="panel-title">Search History</span>
+      <button class="panel-close" onclick="closePanels()">✕</button>
+    </div>
+    <div class="history-panel-filter">
+      <button class="h-filter-btn active" onclick="setHistoryFilter('all',   this)">All</button>
+      <button class="h-filter-btn"        onclick="setHistoryFilter('title', this)">Title</button>
+      <button class="h-filter-btn"        onclick="setHistoryFilter('genre', this)">Genre</button>
+      <button class="h-filter-btn"        onclick="setHistoryFilter('cast',  this)">Cast</button>
+    </div>
+    <div class="panel-body" id="historyBody" style="padding:4px 0;">
+      <div class="panel-loading">Loading…</div>
+    </div>
+    <div class="panel-footer">
+      <button class="clear-btn" onclick="clearHistoryAll()">🗑 &nbsp;Clear History</button>
+    </div>
+  </aside>
+
+  <!-- NAV -->
+  <nav class="nav">
+    <a href="/" class="nav-logo">Cine<span>Vault</span></a>
+
+    <form method="POST" action="/" class="search-form" id="mainSearchForm">
+      <div class="search-row">
+        <select name="search_type" id="searchType" class="search-select" onchange="toggleQuery()">
+          <option value="title">By Title</option>
+          <option value="genre">By Genre</option>
+          <option value="cast">By Cast</option>
+        </select>
+        <input type="text" name="query" id="queryInput" placeholder="Search movies…" class="search-input" autocomplete="off">
+        <!--<select name="genre_pick" id="genrePicker" class="search-select genre-hidden">
+          <option value="">Pick a genre…</option>
+          <option>Action</option><option>Adventure</option><option>Animation</option>
+          <option>Comedy</option><option>Crime</option><option>Documentary</option>
+          <option>Drama</option><option>Family</option><option>Fantasy</option>
+          <option>Horror</option><option>Musical</option><option>Mystery</option>
+          <option>Romance</option><option>Sci-Fi</option><option>Thriller</option>
+          <option>War</option><option>Western</option>
+        </select>-->
+        <button type="submit" class="search-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          Search
+        </button>
+      </div>
+    </form>
+
+    <div class="nav-actions">
+      <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+        <div class="theme-toggle-thumb" id="themeThumb">🌙</div>
+      </button>
+      <button class="nav-icon-btn" onclick="openWatchlist()" title="My Watchlist">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+        </svg>
+        <span class="nav-badge" id="watchlistBadge" style="display:none">0</span>
+      </button>
+      <button class="nav-icon-btn" onclick="openHistory()" title="Search History">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="1 4 1 10 7 10"/>
+          <path d="M3.51 15a9 9 0 1 0 .49-4.95"/>
+        </svg>
+      </button>
+      <div class="nav-user">
+        {% if session.user %}
+          <span class="welcome-user">{{ session.user }}</span>
+        {% endif %}
+        <a href="/" class="logout-btn">← Home</a>
+        <a href="/logout" class="logout-btn">Log out</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ══ MOVIE HERO ══ -->
+  <section class="movie-hero">
+
+    <!-- Poster -->
+    <div class="movie-hero-poster">
+      <img src="{{ url_for('static', filename=movie.poster_url) }}" alt="{{ movie.title }}">
+    </div>
+
+    <!-- Details -->
+    <div class="movie-hero-details">
+
+      <!-- Title with left-rule accent -->
+      <div class="movie-title-wrap">
+        <!--<div class="movie-eyebrow">Now Viewing</div>-->
+        <h1>{{ movie.title }}</h1>
+      </div>
+
+      <!-- Meta rows -->
+      <div class="detail-rows">
+        <div class="detail-row">
+          <span class="detail-label">Year</span>
+          <span class="detail-value year-val">{{ movie.year }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Genre</span>
+          <span class="detail-value">
+            {% for g in movie.genres.split('|') %}
+              <span class="chip">{{ g.strip() }}</span>
+            {% endfor %}
+          </span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Cast</span>
+          <span class="detail-value">{{ movie.cast.replace('|', ' · ') }}</span>
+        </div>
+      </div>
+
+      <div class="hero-divider"></div>
+
+      <!-- Actions -->
+      <div class="hero-actions">
+        <button class="btn-primary" onclick="openTrailer()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="5,3 19,12 5,21"/>
+          </svg>
+          Watch Trailer
+        </button>
+        <button class="watchlist-toggle-btn" id="heroWatchlistBtn" onclick="toggleHeroWatchlist()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+          </svg>
+          Add to Watchlist
+        </button>
+        <button class="btn-secondary" onclick="window.location.href='/'">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M15 18l-6-6 6-6"/>
+    </svg>
+    Back to Home
+  </button>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══ RECOMMENDATIONS ══ -->
+  <div class="rec-section-header">
+    <!--<span class="rec-section-eyebrow">Because you watched</span>-->
+    <h2 class="rec-section-title">Recommended Films</h2>
+    <div class="rec-section-line"></div>
+    <span class="rec-because-tag">
+      Based on &nbsp;<strong>{{ movie.title }}</strong>
+    </span>
+  </div>
+
+  <section class="movies-section">
+    {% if recommendations %}
+      <div class="poster-grid">
+        {% for m in recommendations %}
+        <div class="poster" onclick="openMovieModal({{ loop.index0 }})">
+          <div class="poster-img-wrap">
+            <img src="{{ url_for('static', filename=m.poster_url) }}" alt="{{ m.title }}" loading="lazy">
+            <div class="poster-overlay">
+              <div class="play-btn">
+                <svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
+              </div>
+              <div class="poster-quick-actions">
+                <button
+                  class="quick-btn wl-btn"
+                  data-title="{{ m.title }}"
+                  onclick="event.stopPropagation(); quickToggleWatchlist('{{ m.title|e }}', this)"
+                  title="Watchlist"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                  </svg>
+                </button>
+                <button
+                  class="quick-btn"
+                  onclick="event.stopPropagation(); shareMovie('{{ m.title|e }}')"
+                  title="Share"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="poster-info">
+            <div class="poster-title">{{ m.title }}</div>
+            <div class="poster-meta">{{ m.year }} · {{ m.genres.split('|')[0] }}</div>
+            <div class="poster-meta" style="margin-top:3px;font-size:11px;opacity:0.7;">{{ m.cast.split('|')[0] }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="no-results" style="padding:60px 0;text-align:center;">
+        <div style="font-size:40px;margin-bottom:16px;opacity:0.5;">🎬</div>
+        <p style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--text-hi);margin-bottom:8px;">No recommendations found</p>
+        <p style="font-size:14px;color:var(--text-lo);">Try searching for a different movie.</p>
+        <a href="/" class="btn" style="display:inline-flex;margin-top:24px;">← Back to Search</a>
+      </div>
+    {% endif %}
+  </section>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <span class="footer-logo">Cine<em>Vault</em></span>
+      <span>•</span>
+      <span>Your Personal Film Curator</span>
+      <span>•</span>
+      <span class="heart">©</span>
+      <span>2026 CineVault</span>
+    </div>
+  </footer>
+
+  <!-- TRAILER MODAL -->
+  <div class="modal-backdrop" id="trailerModal" onclick="closeTrailerOnBackdrop(event)">
+    <div class="modal-box" style="max-width:820px;">
+      <div class="modal-video-wrap">
+        <iframe id="trailerIframe" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+      </div>
+      <div class="modal-body">
+        <div class="modal-header">
+          <h2 class="modal-title">{{ movie.title }}</h2>
+          <button class="modal-close" onclick="closeTrailer()">✕</button>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-secondary" onclick="closeTrailer()">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECOMMENDATION MOVIE MODAL -->
+  <div class="modal-backdrop" id="movieModal" onclick="closeModalOnBackdrop(event)">
+    <div class="modal-box" role="dialog" aria-modal="true">
+      <div class="modal-video-wrap">
+        <iframe id="modalIframe" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+      </div>
+      <div class="modal-body">
+        <div class="modal-header">
+          <h2 class="modal-title" id="modalTitle"></h2>
+          <div class="modal-header-actions">
+            <button class="watchlist-toggle-btn" id="modalWatchlistBtn" onclick="toggleWatchlistFromModal()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+              </svg>
+              Add to Watchlist
+            </button>
+            <button class="modal-close" onclick="closeModal()">✕</button>
+          </div>
+        </div>
+        <div class="modal-chips" id="modalChips"></div>
+        <div class="modal-cast"   id="modalCast"></div>
+        <div class="modal-actions">
+          <a href="#" id="modalRecommendBtn" class="btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+            Get Recommendations
+          </a>
+          <button class="btn-secondary" onclick="closeModal()">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="shareToast"></div>
+
+  <script>
+    const recData = [
+      {% for m in recommendations %}
+      {
+        title:     {{ m.title|tojson }},
+        genres:    {{ m.genres|tojson }},
+        cast:      {{ m.cast|tojson }},
+        year:      {{ m.year|tojson }},
+        trailerId: {{ (m.trailer_youtube_id or '')|tojson }}
+      }{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ];
+
+    const CURRENT_TITLE      = {{ movie.title|tojson }};
+    const CURRENT_YEAR       = {{ movie.year|tojson }};
+    const CURRENT_TRAILER_ID = {{ (movie.trailer_youtube_id or '')|tojson }};
+  </script>
+
+  <script>
+    /* ── Theme ── */
+    function applyTheme(t) {
+      document.documentElement.setAttribute('data-theme', t);
+      const th = document.getElementById('themeThumb');
+      if (th) th.textContent = t === 'light' ? '☀️' : '🌙';
+    }
+    function toggleTheme() {
+      const c = document.documentElement.getAttribute('data-theme') || 'dark';
+      const n = c === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('cv-theme', n);
+      applyTheme(n);
+    }
+    applyTheme(localStorage.getItem('cv-theme') || 'dark');
+
+    /* ── Toast ── */
+    function showToast(msg) {
+      const t = document.getElementById('shareToast');
+      if (!t) return;
+      t.textContent = msg; t.classList.add('show');
+      clearTimeout(t._tid);
+      t._tid = setTimeout(() => t.classList.remove('show'), 2800);
+    }
+
+    /* ── API ── */
+    async function apiFetch(url, method = 'GET', body = null) {
+      const opts = { method, headers: { 'Content-Type': 'application/json' } };
+      if (body) opts.body = JSON.stringify(body);
+      return (await fetch(url, opts)).json();
+    }
+
+    function esc(str) {
+      return String(str || '')
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
+    /* ── Trailer ── */
+    function openTrailer() {
+      const src = (CURRENT_TRAILER_ID && CURRENT_TRAILER_ID.trim())
+        ? `https://www.youtube.com/embed/${CURRENT_TRAILER_ID}?autoplay=1&mute=0&rel=0`
+        : `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(CURRENT_TITLE + ' ' + CURRENT_YEAR + ' official trailer')}&autoplay=1&mute=0`;
+      document.getElementById('trailerIframe').src = src;
+      document.getElementById('trailerModal').classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeTrailer() {
+      document.getElementById('trailerModal').classList.remove('active');
+      document.getElementById('trailerIframe').src = '';
+      document.body.style.overflow = '';
+    }
+    function closeTrailerOnBackdrop(e) {
+      if (e.target === document.getElementById('trailerModal')) closeTrailer();
+    }
+
+    /* ── Watchlist ── */
+    let watchlistTitles = new Set();
+
+    async function loadWatchlistCache() {
+      try {
+        const data = await apiFetch('/api/watchlist');
+        watchlistTitles = new Set(data.map(m => m.title));
+        updateWatchlistBadge();
+        syncWatchlistButtons();
+        updateHeroWatchlistBtn();
+      } catch {}
+    }
+
+    function updateWatchlistBadge() {
+      const b = document.getElementById('watchlistBadge');
+      if (!b) return;
+      b.textContent = watchlistTitles.size;
+      b.style.display = watchlistTitles.size > 0 ? 'flex' : 'none';
+    }
+
+    function syncWatchlistButtons() {
+      document.querySelectorAll('.wl-btn[data-title]').forEach(btn => {
+        btn.classList.toggle('wl-saved', watchlistTitles.has(btn.dataset.title));
+      });
+    }
+
+    async function toggleHeroWatchlist() {
+      const inList   = watchlistTitles.has(CURRENT_TITLE);
+      await apiFetch(inList ? '/api/watchlist/remove' : '/api/watchlist/add', 'POST', { title: CURRENT_TITLE });
+      if (inList) watchlistTitles.delete(CURRENT_TITLE);
+      else        watchlistTitles.add(CURRENT_TITLE);
+      updateWatchlistBadge();
+      updateHeroWatchlistBtn();
+      showToast(inList ? 'Removed from watchlist' : '🎬 Added to watchlist!');
+    }
+
+    function updateHeroWatchlistBtn() {
+      const btn    = document.getElementById('heroWatchlistBtn');
+      if (!btn) return;
+      const inList = watchlistTitles.has(CURRENT_TITLE);
+      btn.classList.toggle('active', inList);
+      btn.innerHTML = inList
+        ? `<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg> Saved`
+        : `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg> Add to Watchlist`;
+    }
+
+    async function quickToggleWatchlist(title, btn) {
+      const inList = watchlistTitles.has(title);
+      try {
+        await apiFetch(inList ? '/api/watchlist/remove' : '/api/watchlist/add', 'POST', { title });
+        if (inList) watchlistTitles.delete(title);
+        else        watchlistTitles.add(title);
+        updateWatchlistBadge();
+        btn.classList.toggle('wl-saved', !inList);
+        showToast(inList ? 'Removed from watchlist' : '🎬 Added to watchlist!');
+      } catch { showToast('Something went wrong'); }
+    }
+
+    async function openWatchlist() {
+      closePanels();
+      document.getElementById('watchlistPanel').classList.add('open');
+      document.getElementById('panelOverlay').classList.add('active');
+      await renderWatchlist();
+    }
+
+    async function renderWatchlist() {
+      const body = document.getElementById('watchlistBody');
+      body.innerHTML = '<div class="panel-loading">Loading…</div>';
+      try {
+        const data = await apiFetch('/api/watchlist');
+        if (!data.length) {
+          body.innerHTML = `
+            <div class="panel-empty">
+              <div class="empty-icon">📋</div>
+              <p>Your watchlist is empty</p>
+              <span>Save films to watch later</span>
+            </div>`;
+          return;
+        }
+        body.innerHTML = data.map(m => {
+          const poster = m.poster_url ? `/static/${m.poster_url}` : '';
+          const genre  = (m.genres || '').split('|')[0];
+          return `
+            <div class="panel-item">
+              <div class="panel-item-poster" style="background-image:url('${esc(poster)}')"></div>
+              <div class="panel-item-info">
+                <strong>${esc(m.title)}</strong>
+                <span>${esc(m.year || '')}${genre ? ' · ' + esc(genre) : ''}</span>
+              </div>
+              <button class="panel-remove" onclick="removeWatchlistItem('${esc(m.title)}', this)" title="Remove">✕</button>
+            </div>`;
+        }).join('');
+      } catch {
+        body.innerHTML = '<div class="panel-loading">Could not load watchlist.</div>';
+      }
+    }
+
+    async function removeWatchlistItem(title, btn) {
+      if (btn) btn.textContent = '…';
+      await apiFetch('/api/watchlist/remove', 'POST', { title });
+      watchlistTitles.delete(title);
+      updateWatchlistBadge();
+      syncWatchlistButtons();
+      await renderWatchlist();
+      showToast(`"${title}" removed`);
+    }
+
+    async function clearWatchlistAll() {
+      if (!confirm('Clear your entire watchlist?')) return;
+      const data = await apiFetch('/api/watchlist');
+      for (const m of data) {
+        await apiFetch('/api/watchlist/remove', 'POST', { title: m.title });
+        watchlistTitles.delete(m.title);
+      }
+      updateWatchlistBadge();
+      syncWatchlistButtons();
+      await renderWatchlist();
+      showToast('Watchlist cleared');
+    }
+
+    async function toggleWatchlistFromModal() {
+      if (currentModalIdx < 0) return;
+      const m      = recData[currentModalIdx];
+      const inList = watchlistTitles.has(m.title);
+      await apiFetch(inList ? '/api/watchlist/remove' : '/api/watchlist/add', 'POST', { title: m.title });
+      if (inList) watchlistTitles.delete(m.title);
+      else        watchlistTitles.add(m.title);
+      updateWatchlistBadge();
+      syncWatchlistButtons();
+      updateModalWatchlistBtn();
+      showToast(inList ? 'Removed from watchlist' : '🎬 Saved to watchlist!');
+    }
+
+    /* ── History Panel ── */
+    const TYPE_ICONS = { title: '🔍', genre: '🎭', cast: '🎬' };
+    let _historyCache  = [];
+    let _historyFilter = 'all';
+
+    function setHistoryFilter(filter, btn) {
+      _historyFilter = filter;
+      document.querySelectorAll('.h-filter-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      _renderHistoryItems();
+    }
+
+    function _renderHistoryItems() {
+      const body  = document.getElementById('historyBody');
+      const items = _historyFilter === 'all'
+        ? _historyCache
+        : _historyCache.filter(i => i.search_type === _historyFilter);
+      if (!items.length) {
+        body.innerHTML = `
+          <div class="panel-empty">
+            <div class="empty-icon">🕐</div>
+            <p>No ${_historyFilter === 'all' ? '' : _historyFilter + ' '}searches yet</p>
+            <span>Queries you search will appear here</span>
+          </div>`;
+        return;
+      }
+      body.innerHTML = items.map(item => {
+        const url  = `/?search_type=${encodeURIComponent(item.search_type)}&query=${encodeURIComponent(item.query)}`;
+        const icon = TYPE_ICONS[item.search_type] || '🔍';
+        return `
+          <a class="history-entry" href="${url}">
+            <div class="history-entry-icon type-${esc(item.search_type)}">${icon}</div>
+            <div class="history-entry-text">
+              <div class="history-entry-query">${esc(item.query)}</div>
+              <div class="history-entry-meta">
+                <span class="h-badge type-${esc(item.search_type)}">${esc(item.search_type)}</span>
+                <span class="history-entry-time">${esc(item.searched_at)}</span>
+              </div>
+            </div>
+            <button class="history-remove-btn" title="Remove"
+              onclick="event.preventDefault(); event.stopPropagation(); removeHistoryItem('${esc(item.query)}','${esc(item.search_type)}',this)"
+            >✕</button>
+          </a>`;
+      }).join('');
+    }
+
+    async function openHistory() {
+      closePanels();
+      document.getElementById('historyPanel').classList.add('open');
+      document.getElementById('panelOverlay').classList.add('active');
+      document.getElementById('historyBody').innerHTML = '<div class="panel-loading">Loading…</div>';
+      try {
+        _historyCache = await apiFetch('/api/history');
+        _renderHistoryItems();
+      } catch {
+        document.getElementById('historyBody').innerHTML = '<div class="panel-loading">Could not load history.</div>';
+      }
+    }
+
+    async function removeHistoryItem(query, search_type, btn) {
+      if (btn) { btn.textContent = '…'; btn.disabled = true; }
+      await apiFetch('/api/history/remove', 'POST', { query, search_type });
+      _historyCache = _historyCache.filter(i => !(i.query === query && i.search_type === search_type));
+      _renderHistoryItems();
+      showToast('Removed from history');
+    }
+
+    async function clearHistoryAll() {
+      if (!confirm('Clear your entire search history?')) return;
+      await apiFetch('/api/history/clear', 'POST');
+      _historyCache = [];
+      _renderHistoryItems();
+      showToast('History cleared');
+    }
+
+    /* ── Recommendation Modal ── */
+    let currentModalIdx = -1;
+
+    function openMovieModal(idx) {
+      const m = recData[idx];
+      currentModalIdx = idx;
+      document.getElementById('modalTitle').textContent = m.title;
+
+      const chipsEl = document.getElementById('modalChips');
+      chipsEl.innerHTML = '';
+      String(m.genres).split('|').forEach(g => {
+        const chip = document.createElement('span');
+        chip.className = 'chip'; chip.textContent = g.trim();
+        chipsEl.appendChild(chip);
+      });
+      if (m.year) {
+        const chip = document.createElement('span');
+        chip.className = 'chip chip-year'; chip.textContent = m.year;
+        chipsEl.appendChild(chip);
+      }
+
+      document.getElementById('modalCast').innerHTML =
+        m.cast ? `<strong>Cast:</strong> ${String(m.cast).replace(/\|/g, ', ')}` : '';
+      document.getElementById('modalRecommendBtn').href =
+        `/movie/${encodeURIComponent(m.title)}`;
+
+      const iframeSrc = (m.trailerId && m.trailerId.trim())
+        ? `https://www.youtube.com/embed/${m.trailerId}?autoplay=1&mute=1&rel=0`
+        : `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(m.title + ' ' + m.year + ' official trailer')}&autoplay=1&mute=1`;
+      document.getElementById('modalIframe').src = iframeSrc;
+
+      updateModalWatchlistBtn();
+      document.getElementById('movieModal').classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function updateModalWatchlistBtn() {
+      if (currentModalIdx < 0) return;
+      const m      = recData[currentModalIdx];
+      const btn    = document.getElementById('modalWatchlistBtn');
+      const inList = watchlistTitles.has(m.title);
+      btn.classList.toggle('active', inList);
+      btn.innerHTML = inList
+        ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg> Saved`
+        : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg> Add to Watchlist`;
+    }
+
+    function closeModal() {
+      document.getElementById('movieModal').classList.remove('active');
+      document.getElementById('modalIframe').src = '';
+      document.body.style.overflow = '';
+      currentModalIdx = -1;
+    }
+    function closeModalOnBackdrop(e) {
+      if (e.target === document.getElementById('movieModal')) closeModal();
+    }
+
+    /* ── Share / Search ── */
+    function shareMovie(title) {
+      navigator.clipboard.writeText(`${location.origin}/movie/${encodeURIComponent(title)}`);
+      showToast('🔗 Link copied to clipboard!');
+    }
+
+    function toggleQuery() {
+      const type = document.getElementById('searchType').value;
+      const qi   = document.getElementById('queryInput');
+      const gp   = document.getElementById('genrePicker');
+      if (type === 'genre') {
+        qi.placeholder = 'Or type a genre…';
+        gp.classList.remove('genre-hidden');
+      } else {
+        qi.placeholder = type === 'cast' ? 'Actor or director name…' : 'Search movies…';
+        gp.classList.add('genre-hidden');
+      }
+    }
+
+    document.getElementById('genrePicker').addEventListener('change', function () {
+      if (this.value) document.getElementById('queryInput').value = this.value;
+    });
+
+    function closePanels() {
+      document.querySelectorAll('.side-panel').forEach(p => p.classList.remove('open'));
+      const ov = document.getElementById('panelOverlay');
+      if (ov) ov.classList.remove('active');
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { closeModal(); closeTrailer(); closePanels(); }
+    });
+
+    /* ── Init ── */
+    toggleQuery();
+    loadWatchlistCache();
+  </script>
+</body>
+</html>

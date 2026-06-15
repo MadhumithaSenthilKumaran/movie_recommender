@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Search History — CineVault</title>
+
+  <script>
+    (function () {
+      var t = localStorage.getItem('cv-theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+
+  <style>
+    /* ── History page layout ── */
+    .history-page {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
+
+    .history-page-header {
+      margin-bottom: 32px;
+    }
+
+    .history-page-header .section-tag {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .history-page-header h1 {
+      font-size: 2rem;
+      font-weight: 600;
+      margin: 0 0 8px;
+    }
+
+    .history-page-header p {
+      opacity: 0.5;
+      font-size: 0.875rem;
+      margin: 0;
+    }
+
+    /* ── Filter bar ── */
+    .history-filters {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .h-filter-btn {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.12);
+      color: rgba(255,255,255,0.45);
+      font-size: 0.78rem;
+      padding: 5px 14px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+    .h-filter-btn:hover {
+      border-color: rgba(255,255,255,0.25);
+      color: rgba(255,255,255,0.8);
+    }
+    .h-filter-btn.active {
+      background: rgba(232,201,122,0.13);
+      border-color: rgba(232,201,122,0.45);
+      color: #e8c97a;
+    }
+
+    .clear-history-btn {
+      margin-left: auto;
+      background: transparent;
+      border: 1px solid rgba(192,57,43,0.35);
+      color: rgba(192,57,43,0.7);
+      font-size: 0.78rem;
+      padding: 5px 14px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+    .clear-history-btn:hover {
+      background: rgba(192,57,43,0.1);
+      border-color: rgba(192,57,43,0.6);
+      color: #c0392b;
+    }
+
+    /* ── History list ── */
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .history-entry {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      transition: background 0.15s;
+      border: 1px solid transparent;
+    }
+    .history-entry:hover {
+      background: rgba(255,255,255,0.05);
+      border-color: rgba(255,255,255,0.07);
+    }
+
+    .history-entry-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 16px;
+    }
+    .history-entry-icon.type-title  { background: rgba(232,201,122,0.13); }
+    .history-entry-icon.type-genre  { background: rgba(93,202,165,0.13);  }
+    .history-entry-icon.type-cast   { background: rgba(175,107,236,0.13); }
+
+    .history-entry-text {
+      flex: 1;
+      min-width: 0;
+    }
+    .history-entry-query {
+      font-size: 0.9rem;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .history-entry-meta {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-top: 3px;
+    }
+
+    .h-badge {
+      font-size: 0.63rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 1px 6px;
+      border-radius: 3px;
+    }
+    .h-badge.type-title  { background: rgba(232,201,122,0.18); color: #c9a84c; }
+    .h-badge.type-genre  { background: rgba(93,202,165,0.18);  color: #5dcaa5; }
+    .h-badge.type-cast   { background: rgba(175,107,236,0.18); color: #b87de8; }
+
+
+
+
+    
+
+    .history-remove-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: rgba(255,255,255,0.2);
+      font-size: 14px;
+      padding: 4px 6px;
+      border-radius: 4px;
+      line-height: 1;
+      transition: color 0.15s;
+      flex-shrink: 0;
+    }
+    .history-remove-btn:hover { color: #c0392b; }
+
+    /* ── Empty state ── */
+    .history-empty {
+      text-align: center;
+      padding: 72px 24px;
+      opacity: 0.5;
+    }
+    .history-empty .empty-icon { font-size: 48px; margin-bottom: 16px; }
+    .history-empty p { font-size: 1rem; margin: 0 0 6px; font-weight: 500; }
+    .history-empty span { font-size: 0.82rem; opacity: 0.7; }
+
+    /* ── Count badge ── */
+    .history-count {
+      font-size: 0.78rem;
+      opacity: 0.45;
+      margin-left: auto;
+    }
+
+    /* ── Watchlist panel styles (copied from index) ── */
+    .history-panel-filter {
+      display: flex;
+      gap: 6px;
+      padding: 10px 14px 4px;
+      flex-wrap: wrap;
+    }
+    .h-filter-btn-panel {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.45);
+      font-size: 0.72rem;
+      padding: 3px 10px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      transition: all 0.15s;
+    }
+    .h-filter-btn-panel:hover { border-color: rgba(255,255,255,0.22); color: rgba(255,255,255,0.8); }
+    .h-filter-btn-panel.active {
+      background: rgba(232,201,122,0.13);
+      border-color: rgba(232,201,122,0.4);
+      color: #e8c97a;
+    }
+
+    .history-entry-remove {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: rgba(255,255,255,0.25);
+      font-size: 13px;
+      padding: 2px 4px;
+      border-radius: 4px;
+      line-height: 1;
+      transition: color 0.15s;
+      flex-shrink: 0;
+    }
+    .history-entry-remove:hover { color: #c0392b; }
+  </style>
+</head>
+<body>
+
+  <!-- OVERLAYS & PANELS -->
+  <div class="panel-overlay" id="panelOverlay" onclick="closePanels()"></div>
+
+  <aside class="side-panel" id="watchlistPanel" role="dialog" aria-label="Watchlist">
+    <div class="panel-head">
+      <span class="panel-title">My Watchlist</span>
+      <button class="panel-close" onclick="closePanels()">✕</button>
+    </div>
+    <div class="panel-body" id="watchlistBody">
+      <div class="panel-loading">Loading…</div>
+    </div>
+    <div class="panel-footer">
+      <button class="clear-btn" onclick="clearWatchlistAll()">🗑 &nbsp;Clear All</button>
+    </div>
+  </aside>
+
+  <aside class="side-panel" id="historyPanel" role="dialog" aria-label="Search History">
+    <div class="panel-head">
+      <span class="panel-title">Search History</span>
+      <button class="panel-close" onclick="closePanels()">✕</button>
+    </div>
+    <div class="history-panel-filter">
+      <button class="h-filter-btn-panel active" onclick="setPanelFilter('all',this)">All</button>
+      <button class="h-filter-btn-panel" onclick="setPanelFilter('title',this)">Title</button>
+      <button class="h-filter-btn-panel" onclick="setPanelFilter('genre',this)">Genre</button>
+      <button class="h-filter-btn-panel" onclick="setPanelFilter('cast',this)">Cast</button>
+    </div>
+    <div class="panel-body" id="historyBody" style="padding:4px 0;">
+      <div class="panel-loading">Loading…</div>
+    </div>
+    <div class="panel-footer">
+      <button class="clear-btn" onclick="clearHistoryAll()">🗑 &nbsp;Clear History</button>
+    </div>
+  </aside>
+
+  <!-- NAV -->
+  <nav class="nav">
+    <a href="/" class="nav-logo">Cine<span>Vault</span></a>
+
+    <form method="POST" action="/" class="search-form" id="mainSearchForm">
+      <div class="search-row">
+        <select name="search_type" id="searchType" class="search-select" onchange="toggleQuery()">
+          <option value="title">By Title</option>
+          <option value="genre">By Genre</option>
+          <option value="cast">By Cast</option>
+        </select>
+        <input type="text" name="query" id="queryInput" placeholder="Search movies…" class="search-input" autocomplete="off" />
+        <!--<select name="genre_pick" id="genrePicker" class="search-select genre-hidden">
+          <option value="">Pick a genre…</option>
+          <option>Action</option><option>Adventure</option><option>Animation</option>
+          <option>Comedy</option><option>Crime</option><option>Documentary</option>
+          <option>Drama</option><option>Family</option><option>Fantasy</option>
+          <option>Horror</option><option>Musical</option><option>Mystery</option>
+          <option>Romance</option><option>Sci-Fi</option><option>Thriller</option>
+          <option>War</option><option>Western</option>
+        </select>-->
+        <button type="submit" class="search-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          Search
+        </button>
+      </div>
+    </form>
+
+    <div class="nav-actions">
+      <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+        <div class="theme-toggle-thumb" id="themeThumb">🌙</div>
+      </button>
+
+      <button class="nav-icon-btn" onclick="openWatchlist()" title="My Watchlist">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+        </svg>
+        <span class="nav-badge" id="watchlistBadge" style="display:none">0</span>
+      </button>
+
+      <button class="nav-icon-btn" onclick="openHistoryPanel()" title="Search History">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="1 4 1 10 7 10"/>
+          <path d="M3.51 15a9 9 0 1 0 .49-4.95"/>
+        </svg>
+      </button>
+
+      <div class="nav-user">
+        <span class="welcome-user">{{ username }}</span>
+        <a href="/logout" class="logout-btn">Log out</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- PAGE CONTENT -->
+  <div class="history-page">
+    <div class="history-page-header">
+      <span class="section-tag">✦ Your activity</span>
+      <h1>Search History</h1>
+      <p>Every title, genre, and cast search you've made — click any entry to re-run it.</p>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="history-filters">
+      <button class="h-filter-btn active" data-filter="all"   onclick="setPageFilter('all',   this)">All</button>
+      <button class="h-filter-btn"        data-filter="title" onclick="setPageFilter('title', this)">Title</button>
+      <button class="h-filter-btn"        data-filter="genre" onclick="setPageFilter('genre', this)">Genre</button>
+      <button class="h-filter-btn"        data-filter="cast"  onclick="setPageFilter('cast',  this)">Cast</button>
+      <button class="clear-history-btn"   onclick="clearAllHistory()">🗑 Clear All</button>
+    </div>
+
+    <!-- List -->
+    <div class="history-list" id="historyList">
+      <div class="history-empty">
+        <div class="empty-icon">⏳</div>
+        <p>Loading history…</p>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <span class="footer-logo">Cine<em>Vault</em></span>
+      <span>Crafted with <span class="heart">♥</span> — Your personal film curator</span>
+    </div>
+  </footer>
+
+  <div class="toast" id="shareToast"></div>
+
+  <script>
+    /* ── Theme ── */
+    function applyTheme(t) {
+      document.documentElement.setAttribute('data-theme', t);
+      const th = document.getElementById('themeThumb');
+      if (th) th.textContent = t === 'light' ? '☀️' : '🌙';
+    }
+    function toggleTheme() {
+      const c = document.documentElement.getAttribute('data-theme') || 'dark';
+      const n = c === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('cv-theme', n);
+      applyTheme(n);
+    }
+    applyTheme(localStorage.getItem('cv-theme') || 'dark');
+
+    /* ── Toast ── */
+    function showToast(msg) {
+      const t = document.getElementById('shareToast');
+      if (!t) return;
+      t.textContent = msg; t.classList.add('show');
+      clearTimeout(t._tid);
+      t._tid = setTimeout(() => t.classList.remove('show'), 2800);
+    }
+
+    /* ── API ── */
+    async function apiFetch(url, method = 'GET', body = null) {
+      const opts = { method, headers: { 'Content-Type': 'application/json' } };
+      if (body) opts.body = JSON.stringify(body);
+      return (await fetch(url, opts)).json();
+    }
+
+    function esc(str) {
+      return String(str || '')
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
+    /* ═══════════════════════════════
+       PAGE HISTORY LIST
+    ═══════════════════════════════ */
+    const TYPE_ICONS = { title: '🔍', genre: '🎭', cast: '🎬' };
+
+    let _allHistory   = [];
+    let _pageFilter   = 'all';
+
+    async function loadPageHistory() {
+      try {
+        _allHistory = await apiFetch('/api/history');
+        renderPageHistory();
+      } catch {
+        document.getElementById('historyList').innerHTML = `
+          <div class="history-empty">
+            <div class="empty-icon">⚠️</div>
+            <p>Could not load history</p>
+          </div>`;
+      }
+    }
+
+    function setPageFilter(filter, btn) {
+      _pageFilter = filter;
+      document.querySelectorAll('.history-filters .h-filter-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      renderPageHistory();
+    }
+
+    function renderPageHistory() {
+      const list = document.getElementById('historyList');
+      const items = _pageFilter === 'all'
+        ? _allHistory
+        : _allHistory.filter(i => i.search_type === _pageFilter);
+
+      if (!items.length) {
+        list.innerHTML = `
+          <div class="history-empty">
+            <div class="empty-icon">🕐</div>
+            <p>No ${_pageFilter === 'all' ? '' : _pageFilter + ' '}searches yet</p>
+            <span>Searches you make will appear here.</span>
+          </div>`;
+        return;
+      }
+
+      list.innerHTML = items.map(item => {
+        const url  = `/?search_type=${encodeURIComponent(item.search_type)}&query=${encodeURIComponent(item.query)}`;
+        const icon = TYPE_ICONS[item.search_type] || '🔍';
+        return `
+          <a class="history-entry" href="${url}">
+            <div class="history-entry-icon type-${esc(item.search_type)}">${icon}</div>
+            <div class="history-entry-text">
+              <div class="history-entry-query">${esc(item.query)}</div>
+              <div class="history-entry-meta">
+                <span class="h-badge type-${esc(item.search_type)}">${esc(item.search_type)}</span>
+                
+              </div>
+            </div>
+            <button
+              class="history-remove-btn"
+              title="Remove"
+              onclick="event.preventDefault(); event.stopPropagation(); removeSingle('${esc(item.query)}', '${esc(item.search_type)}', this)"
+            >✕</button>
+          </a>`;
+      }).join('');
+    }
+
+    async function removeSingle(query, search_type, btn) {
+      if (btn) { btn.textContent = '…'; btn.disabled = true; }
+      await apiFetch('/api/history/remove', 'POST', { query, search_type });
+      _allHistory = _allHistory.filter(i => !(i.query === query && i.search_type === search_type));
+      renderPageHistory();
+      showToast('Removed from history');
+    }
+
+    async function clearAllHistory() {
+      if (!confirm('Clear your entire search history? This cannot be undone.')) return;
+      await apiFetch('/api/history/clear', 'POST');
+      _allHistory = [];
+      renderPageHistory();
+      // also refresh the side panel cache
+      _panelHistoryCache = [];
+      showToast('History cleared');
+    }
+
+    /* ═══════════════════════════════
+       SIDE PANEL — HISTORY
+    ═══════════════════════════════ */
+    let _panelHistoryCache  = [];
+    let _panelHistoryFilter = 'all';
+
+    function setPanelFilter(filter, btn) {
+      _panelHistoryFilter = filter;
+      document.querySelectorAll('.h-filter-btn-panel').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      _renderPanelHistory();
+    }
+
+    function _renderPanelHistory() {
+      const body = document.getElementById('historyBody');
+      const items = _panelHistoryFilter === 'all'
+        ? _panelHistoryCache
+        : _panelHistoryCache.filter(i => i.search_type === _panelHistoryFilter);
+
+      if (!items.length) {
+        body.innerHTML = `
+          <div class="panel-empty">
+            <div class="empty-icon">🕐</div>
+            <p>No ${_panelHistoryFilter === 'all' ? '' : _panelHistoryFilter + ' '}searches yet</p>
+            <span>Queries you search will appear here</span>
+          </div>`;
+        return;
+      }
+
+      body.innerHTML = items.map(item => {
+        const url  = `/?search_type=${encodeURIComponent(item.search_type)}&query=${encodeURIComponent(item.query)}`;
+        const icon = TYPE_ICONS[item.search_type] || '🔍';
+        return `
+          <a class="history-entry" href="${url}" style="padding: 10px 14px;">
+            <div class="history-entry-icon type-${esc(item.search_type)}" style="width:32px;height:32px;font-size:14px;">${icon}</div>
+            <div class="history-entry-text">
+              <div class="history-entry-query" style="font-size:0.85rem;">${esc(item.query)}</div>
+              <div class="history-entry-meta">
+                <span class="h-badge type-${esc(item.search_type)}">${esc(item.search_type)}</span>
+                
+              </div>
+            </div>
+            <button
+              class="history-entry-remove"
+              title="Remove"
+              onclick="event.preventDefault(); event.stopPropagation(); removePanelItem('${esc(item.query)}','${esc(item.search_type)}',this)"
+            >✕</button>
+          </a>`;
+      }).join('');
+    }
+
+    async function openHistoryPanel() {
+      closePanels();
+      document.getElementById('historyPanel').classList.add('open');
+      document.getElementById('panelOverlay').classList.add('active');
+      const body = document.getElementById('historyBody');
+      body.innerHTML = '<div class="panel-loading">Loading…</div>';
+      _panelHistoryCache = await apiFetch('/api/history');
+      _renderPanelHistory();
+    }
+
+    async function removePanelItem(query, search_type, btn) {
+      if (btn) { btn.textContent = '…'; btn.disabled = true; }
+      await apiFetch('/api/history/remove', 'POST', { query, search_type });
+      _panelHistoryCache = _panelHistoryCache.filter(i => !(i.query === query && i.search_type === search_type));
+      // also update page list
+      _allHistory = _allHistory.filter(i => !(i.query === query && i.search_type === search_type));
+      renderPageHistory();
+      _renderPanelHistory();
+      showToast('Removed from history');
+    }
+
+    async function clearHistoryAll() {
+      if (!confirm('Clear your entire search history? This cannot be undone.')) return;
+      await apiFetch('/api/history/clear', 'POST');
+      _panelHistoryCache = [];
+      _allHistory = [];
+      renderPageHistory();
+      _renderPanelHistory();
+      showToast('History cleared');
+    }
+
+    /* ═══════════════════════════════
+       SIDE PANEL — WATCHLIST
+    ═══════════════════════════════ */
+    let watchlistTitles = new Set();
+
+    async function loadWatchlistCache() {
+      try {
+        const data = await apiFetch('/api/watchlist');
+        watchlistTitles = new Set(data.map(m => m.title));
+        updateWatchlistBadge();
+      } catch {}
+    }
+
+    function updateWatchlistBadge() {
+      const b = document.getElementById('watchlistBadge');
+      if (!b) return;
+      b.textContent = watchlistTitles.size;
+      b.style.display = watchlistTitles.size > 0 ? 'flex' : 'none';
+    }
+
+    async function openWatchlist() {
+      closePanels();
+      document.getElementById('watchlistPanel').classList.add('open');
+      document.getElementById('panelOverlay').classList.add('active');
+      await renderWatchlist();
+    }
+
+    async function renderWatchlist() {
+      const body = document.getElementById('watchlistBody');
+      body.innerHTML = '<div class="panel-loading">Loading…</div>';
+      try {
+        const data = await apiFetch('/api/watchlist');
+        if (!data.length) {
+          body.innerHTML = `
+            <div class="panel-empty">
+              <div class="empty-icon">📋</div>
+              <p>Your watchlist is empty</p>
+              <span>Save films to watch later</span>
+            </div>`;
+          return;
+        }
+        body.innerHTML = data.map(m => {
+          const poster = m.poster_url ? `/static/${m.poster_url}` : '';
+          const genre  = (m.genres || '').split('|')[0];
+          return `
+            <div class="panel-item">
+              <div class="panel-item-poster" style="background-image:url('${esc(poster)}')"></div>
+              <div class="panel-item-info">
+                <strong>${esc(m.title)}</strong>
+                <span>${esc(m.year || '')}${genre ? ' · ' + esc(genre) : ''}</span>
+              </div>
+              <button class="panel-remove" onclick="removeWatchlistItem('${esc(m.title)}', this)" title="Remove">✕</button>
+            </div>`;
+        }).join('');
+      } catch {
+        body.innerHTML = '<div class="panel-loading">Could not load watchlist.</div>';
+      }
+    }
+
+    async function removeWatchlistItem(title, btn) {
+      if (btn) btn.textContent = '…';
+      await apiFetch('/api/watchlist/remove', 'POST', { title });
+      watchlistTitles.delete(title);
+      updateWatchlistBadge();
+      await renderWatchlist();
+      showToast(`"${title}" removed`);
+    }
+
+    async function clearWatchlistAll() {
+      if (!confirm('Clear your entire watchlist? This cannot be undone.')) return;
+      const data = await apiFetch('/api/watchlist');
+      for (const m of data) {
+        await apiFetch('/api/watchlist/remove', 'POST', { title: m.title });
+        watchlistTitles.delete(m.title);
+      }
+      updateWatchlistBadge();
+      await renderWatchlist();
+      showToast('Watchlist cleared');
+    }
+
+    /* ═══════════════════════════════
+       PANELS / SEARCH
+    ═══════════════════════════════ */
+    function closePanels() {
+      document.querySelectorAll('.side-panel').forEach(p => p.classList.remove('open'));
+      const ov = document.getElementById('panelOverlay');
+      if (ov) ov.classList.remove('active');
+    }
+
+    function toggleQuery() {
+      const type = document.getElementById('searchType').value;
+      const qi   = document.getElementById('queryInput');
+      const gp   = document.getElementById('genrePicker');
+      if (type === 'genre') {
+        qi.placeholder = 'Or type a genre…';
+        gp.classList.remove('genre-hidden');
+      } else {
+        qi.placeholder = type === 'cast' ? 'Actor or director name…' : 'Search movies…';
+        gp.classList.add('genre-hidden');
+      }
+    }
+
+    document.getElementById('genrePicker').addEventListener('change', function () {
+      if (this.value) document.getElementById('queryInput').value = this.value;
+    });
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closePanels();
+    });
+
+    /* ── Init ── */
+    toggleQuery();
+    loadWatchlistCache();
+    loadPageHistory();
+  </script>
+</body>
+</html>

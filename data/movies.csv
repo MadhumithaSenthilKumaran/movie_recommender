@@ -1,0 +1,31 @@
+movieId,title,genres,cast,poster_url,year,trending_score,trailer_youtube_id
+1,Toy Story (1995),Animation|Children|Comedy,Tom Hanks|Tim Allen|Don Rickles,posters/toy_story.jpg,1995,95,v-PjgYDrg70
+2,Jumanji (1995),Adventure|Children|Fantasy,Robin Williams|Kirsten Dunst|Bonnie Hunt,posters/Jumanji_poster.jpg,1995,90,3izH9zII_VU
+3,Grumpier Old Men (1995),Comedy|Romance,Jack Lemmon|Walter Matthau|Ann-Margret,posters/grumpier_old_men.jpg,1995,75,VLiZ8FID2fA
+4,Waiting to Exhale (1995),Comedy|Drama,Whitney Houston|Angela Bassett|Loretta Devine,posters/waiting_to_exhale.jpg,1995,80,t5iE3Wt2cJs
+5,Father of the Bride Part II (1995),Comedy,Steve Martin|Diane Keaton|Martin Short,posters/father_of_the_bride_2.jpg,1995,70,BbvnDlu_Zjc
+6,Heat (1995),Action|Crime|Thriller,Al Pacino|Robert De Niro|Val Kilmer,posters/heat.jpg,1995,85,2GfZl4kuVNI
+7,The Lord of the Rings: The Fellowship of the Ring (2001),Action|Adventure|Fantasy,Elijah Wood|Ian McKellen|Orlando Bloom,posters/otr_fellowship.jpg,2001,96,V75dMMIW2B4
+8,Harry Potter and the Sorcerer's Stone (2001),Adventure|Family|Fantasy,Daniel Radcliffe|Emma Watson|Rupert Grint,posters/harry_potter_1.jpg,2001,92,VyHV0BRtdxo
+9,The Avengers (2012),Action|Adventure|Sci-Fi,Robert Downey Jr.|Chris Evans|Scarlett Johansson,posters/avengers.jpg,2012,94,sXT4uBpGxNY
+10,Frozen (2013),Animation|Adventure|Comedy,Kristen Bell|Idina Menzel|Jonathan Groff,posters/frozen.jpg,2013,91,A-KEroPbkIc
+11,The Dark Knight (2008),Action|Crime|Drama,Christian Bale|Heath Ledger|Aaron Eckhart,posters/dark_knight.jpg,2008,98,EXeTwQWrcwY
+12,Inception (2010),Action|Adventure|Sci-Fi,Leonardo DiCaprio|Joseph Gordon-Levitt|Tom Hardy,posters/inception1.jpg,2010,97,YoHD9XEInc0
+13,Interstellar (2014),Adventure|Drama|Sci-Fi,Matthew McConaughey|Anne Hathaway|Jessica Chastain,posters/interstellar.png,2014,98,zSWdZVtXT7E
+14,Titanic (1997),Drama|Romance,Leonardo DiCaprio|Kate Winslet|Billy Zane,posters/titanic.jpg,1997,95,kVrqfYjkTdQ
+15,Avatar (2009),Action|Adventure|Fantasy,Sam Worthington|Zoe Saldana|Sigourney Weaver,posters/avatar.jpg,2009,96,5PSNL1qE6VY
+16,Spider-Man: No Way Home (2021),Action|Adventure|Sci-Fi,Tom Holland|Zendaya|Benedict Cumberbatch,posters/spider_man.png,2021,99,JfVOs4VSpmA
+17,Joker (2019),Crime|Drama|Thriller,Joaquin Phoenix|Robert De Niro|Zazie Beetz,posters/joker.jpg,2019,94,zAGVQLHvwOY
+18,Coco (2017),Animation|Adventure|Family,Anthony Gonzalez|Gael Garcia Bernal|Benjamin Bratt,posters/coco.jpg,2017,95,Ga6RYejo6Hk
+19,The Lion King (1994),Animation|Adventure|Drama,Matthew Broderick|Jeremy Irons|James Earl Jones,posters/lion_king.jpg,1994,96,4sj1MT05lAA
+20,Shrek (2001),Animation|Adventure|Comedy,Mike Myers|Eddie Murphy|Cameron Diaz,posters/shrek.jpg,2001,92,CwXOrWvPBPk
+21,The Conjuring (2013),Horror|Mystery|Thriller,Vera Farmiga|Patrick Wilson|Lili Taylor,posters/conjuring.jpg,2013,91,k10ETZ41q5o
+22,Parasite (2019),Drama|Thriller,Song Kang-ho|Lee Sun-kyun|Cho Yeo-jeong,posters/parasite1.jpg,2019,97,5xH0HfJHsaY
+23,Top Gun: Maverick (2022),Action|Drama,Tom Cruise|Miles Teller|Jennifer Connelly,posters/topgun_maverick.jpg,2022,98,giXco2jaZ_4
+24,Dune (2021),Adventure|Drama|Sci-Fi,Timothee Chalamet|Rebecca Ferguson|Zendaya,posters/dune.jpg,2021,95,n9xhJrPXop4
+25,Oppenheimer (2023),Biography|Drama|History,Cillian Murphy|Emily Blunt|Matt Damon,posters/oppenheimer.png,2023,99,uYPbbksJxIg
+26,The Matrix (1999),Action|Sci-Fi,Keanu Reeves|Laurence Fishburne|Carrie-Anne Moss,posters/matrix.jpg,1999,97,vKQi3bBA1y8
+27,Forrest Gump (1994),Drama|Romance,Tom Hanks|Robin Wright|Gary Sinise,posters/forrest_gump.png,1994,96,bLvqoHBptjg
+28,The Shawshank Redemption (1994),Drama,Tim Robbins|Morgan Freeman|Bob Gunton,posters/redemption.png,1994,99,6hB3S9bIaco
+29,Gladiator (2000),Action|Adventure|Drama,Russell Crowe|Joaquin Phoenix|Connie Nielsen,posters/gladiator1.jpg,2000,95,P5ieIbInFpg
+30,Pirates of the Caribbean: The Curse of the Black Pearl (2003),Adventure|Fantasy,Johnny Depp|Orlando Bloom|Keira Knightley,posters/pirates.jpg,2003,94,naQr0uTrH_s

@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CineVault — Movie Recommender</title>
+
+  <script>
+    (function () {
+      var t = localStorage.getItem('cv-theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+
+  <style>
+    /* ── History panel entries ── */
+    .history-entry {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      transition: background 0.15s;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .history-entry:last-child { border-bottom: none; }
+    .history-entry:hover { background: rgba(255,255,255,0.06); }
+
+    .history-entry-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 14px;
+    }
+    .history-entry-icon.type-title  { background: rgba(232,201,122,0.13); }
+    .history-entry-icon.type-genre  { background: rgba(93,202,165,0.13);  }
+    .history-entry-icon.type-cast   { background: rgba(175,107,236,0.13); }
+
+    .history-entry-text { flex: 1; min-width: 0; }
+    .history-entry-query {
+      font-size: 0.85rem;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .history-entry-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 2px;
+    }
+    .h-badge {
+      font-size: 0.62rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
+    .h-badge.type-title  { background: rgba(232,201,122,0.18); color: #c9a84c; }
+    .h-badge.type-genre  { background: rgba(93,202,165,0.18);  color: #5dcaa5; }
+    .h-badge.type-cast   { background: rgba(175,107,236,0.18); color: #b87de8; }
+
+    .history-entry-time {
+      font-size: 0.7rem;
+      opacity: 0.45;
+      white-space: nowrap;
+    }
+
+    .history-remove-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: rgba(255,255,255,0.25);
+      font-size: 13px;
+      padding: 2px 4px;
+      border-radius: 4px;
+      line-height: 1;
+      transition: color 0.15s;
+      flex-shrink: 0;
+    }
+    .history-remove-btn:hover { color: #c0392b; }
+
+    .history-panel-filter {
+      display: flex;
+      gap: 6px;
+      padding: 10px 14px 4px;
+      flex-wrap: wrap;
+    }
+    .h-filter-btn {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.45);
+      font-size: 0.72rem;
+      padding: 3px 10px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      transition: all 0.15s;
+    }
+    .h-filter-btn:hover { border-color: rgba(255,255,255,0.22); color: rgba(255,255,255,0.8); }
+    .h-filter-btn.active {
+      background: rgba(232,201,122,0.13);
+      border-color: rgba(232,201,122,0.4);
+      color: #e8c97a;
+    }
+
+    
+  </style>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════
+       PANEL OVERLAY
+  ═══════════════════════════════════════════════════════ -->
+  <div class="panel-overlay" id="panelOverlay" onclick="closePanels()"></div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       WATCHLIST PANEL
+  ═══════════════════════════════════════════════════════ -->
+  <aside class="side-panel" id="watchlistPanel" role="dialog" aria-label="Watchlist">
+    <div class="panel-head">
+      <span class="panel-title">My Watchlist</span>
+      <button class="panel-close" onclick="closePanels()" aria-label="Close">✕</button>
+    </div>
+    <div class="panel-body" id="watchlistBody">
+      <div class="panel-loading">Loading…</div>
+    </div>
+    <div class="panel-footer">
+      <button class="clear-btn" onclick="clearWatchlistAll()">🗑 &nbsp;Clear All</button>
+    </div>
+  </aside>
+
+  <!-- ═══════════════════════════════════════════════════════
+       HISTORY PANEL  (search queries — navigable)
+  ═══════════════════════════════════════════════════════ -->
+  <aside class="side-panel" id="historyPanel" role="dialog" aria-label="Search History">
+    <div class="panel-head">
+      <span class="panel-title">Search History</span>
+      <button class="panel-close" onclick="closePanels()" aria-label="Close">✕</button>
+    </div>
+
+    <!-- filter tabs -->
+    <div class="history-panel-filter" id="historyFilterRow">
+      <button class="h-filter-btn active" data-filter="all"   onclick="setHistoryFilter('all',   this)">All</button>
+      <button class="h-filter-btn"        data-filter="title" onclick="setHistoryFilter('title', this)">Title</button>
+      <button class="h-filter-btn"        data-filter="genre" onclick="setHistoryFilter('genre', this)">Genre</button>
+      <button class="h-filter-btn"        data-filter="cast"  onclick="setHistoryFilter('cast',  this)">Cast</button>
+    </div>
+
+    <div class="panel-body" id="historyBody" style="padding:4px 0;">
+      <div class="panel-loading">Loading…</div>
+    </div>
+
+    <div class="panel-footer" style="display:flex;gap:8px;flex-direction:column;">
+      
+      <button class="clear-btn" onclick="clearHistoryAll()">🗑 &nbsp;Clear History</button>
+    </div>
+  </aside>
+
+  <!-- ═══════════════════════════════════════════════════════
+       NAV
+  ═══════════════════════════════════════════════════════ -->
+  <nav class="nav">
+    <a href="/" class="nav-logo">Cine<span>Vault</span></a>
+
+    <form method="POST" class="search-form" id="mainSearchForm">
+      <div class="search-row">
+        <select name="search_type" id="searchType" class="search-select" onchange="toggleQuery()">
+          <option value="title">By Title</option>
+          <option value="genre">By Genre</option>
+          <option value="cast">By Cast</option>
+        </select>
+
+        <input
+          type="text" name="query" id="queryInput"
+          placeholder="Search movies…" class="search-input"
+          autocomplete="off"
+        />
+
+        <!--<select name="genre_pick" id="genrePicker" class="search-select genre-hidden">
+          <option value="">Pick a genre…</option>
+          <option>Action</option><option>Adventure</option><option>Animation</option>
+          <option>Comedy</option><option>Crime</option><option>Documentary</option>
+          <option>Drama</option><option>Family</option><option>Fantasy</option>
+          <option>Horror</option><option>Musical</option><option>Mystery</option>
+          <option>Romance</option><option>Sci-Fi</option><option>Thriller</option>
+          <option>War</option><option>Western</option>
+        </select>-->
+
+        <button type="submit" class="search-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          Search
+        </button>
+      </div>
+    </form>
+
+    <div class="nav-actions">
+
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle light/dark theme" title="Toggle theme">
+        <div class="theme-toggle-thumb" id="themeThumb">🌙</div>
+      </button>
+
+      <!-- Watchlist icon -->
+      <button class="nav-icon-btn" onclick="openWatchlist()" title="My Watchlist" aria-label="My Watchlist">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+        </svg>
+        <span class="nav-badge" id="watchlistBadge" style="display:none">0</span>
+      </button>
+
+      <!-- History icon -->
+      <button class="nav-icon-btn" onclick="openHistory()" title="Search History" aria-label="Search History">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="1 4 1 10 7 10"/>
+          <path d="M3.51 15a9 9 0 1 0 .49-4.95"/>
+        </svg>
+      </button>
+
+      {% if session.user %}
+      <div class="nav-user">
+        <span class="welcome-user">{{ session.user }}</span>
+        <a href="/logout" class="logout-btn">Log out</a>
+      </div>
+      {% else %}
+      <div class="nav-user">
+        <span class="welcome-user">{{ username }}</span>
+        <a href="/logout" class="logout-btn">Logout</a>
+      </div>
+      {% endif %}
+
+    </div>
+  </nav>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="flash-messages">
+      {% for cat, msg in messages %}
+      <div class="flash-msg {{ cat }}">{{ msg }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  {% endwith %}
+
+  <!-- ═══════════════════════════════════════════════════════
+       HERO
+  ═══════════════════════════════════════════════════════ -->
+  <section class="hero">
+    <div class="hero-orb orb1"></div>
+    <div class="hero-orb orb2"></div>
+    <div class="hero-content">
+      <span class="hero-eyebrow">✦ Curated for you</span>
+      <h1>Discover <em>Cinema</em><br>You'll Love</h1>
+      <p class="hero-sub">Smart recommendations powered by genre, cast, and your viewing history.</p>
+      <div class="hero-stats">
+        <div class="stat"><strong>{{ movies|length }}+</strong><span>Films</span></div>
+        <div class="stat-divider"></div>
+        <div class="stat"><strong>17+</strong><span>Genres</span></div>
+        <div class="stat-divider"></div>
+        <div class="stat"><strong>AI</strong><span>Powered</span></div>
+      </div>
+    </div>
+    <div class="genre-pills">
+      {% for g in ['Action','Comedy','Drama','Thriller','Sci-Fi','Horror','Romance','Animation'] %}
+      <button class="genre-pill" onclick="filterByGenre('{{ g }}')">{{ g }}</button>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════
+       MOOD PICKER
+  ═══════════════════════════════════════════════════════ -->
+  <!--
+  <section class="mood-section">
+    <h3 class="mood-title">What's your mood tonight?</h3>
+    <div class="mood-grid">
+      <button class="mood-card" onclick="filterByGenre('Action')"><span class="mood-emoji">⚡</span><span>Adrenaline</span></button>
+      <button class="mood-card" onclick="filterByGenre('Comedy')"><span class="mood-emoji">😂</span><span>Feel-Good</span></button>
+      <button class="mood-card" onclick="filterByGenre('Romance')"><span class="mood-emoji">💜</span><span>Romantic</span></button>
+      <button class="mood-card" onclick="filterByGenre('Horror')"><span class="mood-emoji">👻</span><span>Scared</span></button>
+      <button class="mood-card" onclick="filterByGenre('Drama')"><span class="mood-emoji">🎭</span><span>Thoughtful</span></button>
+      <button class="mood-card" onclick="filterByGenre('Animation')"><span class="mood-emoji">✨</span><span>Whimsical</span></button>
+    </div>
+  </section>
+
+-->
+
+  <!-- ═══════════════════════════════════════════════════════
+       MOVIES GRID
+  ═══════════════════════════════════════════════════════ -->
+  <section class="movies-section">
+    <div class="section-header">
+      <span class="section-tag">✦ Trending</span>
+      <h2>Popular Right Now</h2>
+      <div class="section-line"></div>
+    </div>
+
+    <div class="poster-grid">
+      {% for m in movies %}
+      <div class="poster" onclick="openModal({{ loop.index0 }})">
+        <div class="poster-img-wrap">
+          <!--
+          {% if m.trending_score and m.trending_score|int >= 90 %}
+            <span class="trending-badge">🔥 Hot</span>
+          {% endif %}
+        -->
+          <img src="{{ url_for('static', filename=m.poster_url) }}" alt="{{ m.title }}" loading="lazy" />
+          <div class="poster-overlay">
+            <div class="play-btn">
+              <svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
+            </div>
+            <div class="poster-quick-actions">
+              <button
+                class="quick-btn wl-btn"
+                data-title="{{ m.title }}"
+                onclick="event.stopPropagation(); quickToggleWatchlist('{{ m.title|e }}', this)"
+                title="Watchlist"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                </svg>
+              </button>
+              <button
+                class="quick-btn"
+                onclick="event.stopPropagation(); shareMovie('{{ m.title|e }}')"
+                title="Share"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="poster-info">
+          <div class="poster-title">{{ m.title }}</div>
+          <div class="poster-meta">{{ m.year }} · {{ m.genres.split('|')[0] }}</div>
+          {% if m.trending_score %}
+          <div class="score-bar-wrap">
+            <div class="score-bar-track">
+              <div class="score-bar-fill" style="width: {{ m.trending_score }}%"></div>
+            </div>
+            <span class="score-label">{{ m.trending_score|int }}%</span>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════
+       FOOTER
+  ═══════════════════════════════════════════════════════ -->
+  <footer class="footer">
+    <div class="footer-inner">
+        <span class="footer-logo">Cine<em>Vault</em></span>
+        <span>•</span>
+        <span>Your Personal Film Curator</span>
+        <span>•</span>
+        <span class="heart">©</span>
+        <span>2026 CineVault</span>
+    </div>
+</footer>
+
+  <!-- ═══════════════════════════════════════════════════════
+       VIDEO MODAL
+  ═══════════════════════════════════════════════════════ -->
+  <div class="modal-backdrop" id="movieModal" onclick="closeModalOnBackdrop(event)">
+    <div class="modal-box" id="modalBox" role="dialog" aria-modal="true">
+
+      <div class="modal-video-wrap">
+        <iframe id="modalIframe" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+      </div>
+
+      <div class="modal-body">
+        <div class="modal-header">
+          <h2 class="modal-title" id="modalTitle"></h2>
+          <div class="modal-header-actions">
+            <button class="watchlist-toggle-btn" id="modalWatchlistBtn" onclick="toggleWatchlistFromModal()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+              </svg>
+              Add to Watchlist
+            </button>
+            <button class="modal-close" onclick="closeModal()" aria-label="Close">✕</button>
+          </div>
+        </div>
+
+        <div class="modal-chips" id="modalChips"></div>
+        <div class="modal-cast"   id="modalCast"></div>
+        <div class="modal-rating" id="modalRating"></div>
+
+        <div class="modal-actions">
+          <a href="#" id="modalRecommendBtn" class="btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+            Get Recommendations
+          </a>
+          <button class="btn-secondary" onclick="closeModal()">Close</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Toast ── -->
+  <div class="toast" id="shareToast"></div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       MOVIE DATA
+  ═══════════════════════════════════════════════════════ -->
+  <script>
+    const movieData = [
+      {% for m in movies %}
+      {
+        title:     {{ m.title|tojson }},
+        genres:    {{ m.genres|tojson }},
+        cast:      {{ m.cast|tojson }},
+        year:      {{ m.year|tojson }},
+        poster:    {{ url_for('static', filename=m.poster_url)|tojson }},
+        score:     {{ m.trending_score or 0 }},
+        trailerId: {{ (m.trailer_youtube_id or '')|tojson }}
+      }{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ];
+  </script>
+
+  <!-- ═══════════════════════════════════════════════════════
+       MAIN JS
+  ═══════════════════════════════════════════════════════ -->
+  <script>
+    /* ── Theme ── */
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      const thumb = document.getElementById('themeThumb');
+      if (thumb) thumb.textContent = theme === 'light' ? '☀️' : '🌙';
+    }
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme') || 'dark';
+      const next    = current === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('cv-theme', next);
+      applyTheme(next);
+    }
+    applyTheme(localStorage.getItem('cv-theme') || 'dark');
+
+    /* ── Toast ── */
+    function showToast(msg) {
+      const t = document.getElementById('shareToast');
+      if (!t) return;
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(t._tid);
+      t._tid = setTimeout(() => t.classList.remove('show'), 2800);
+    }
+
+    /* ── Panel helpers ── */
+    function closePanels() {
+      document.querySelectorAll('.side-panel').forEach(p => p.classList.remove('open'));
+      const ov = document.getElementById('panelOverlay');
+      if (ov) ov.classList.remove('active');
+    }
+    function openPanel(id) {
+      closePanels();
+      const p  = document.getElementById(id);
+      const ov = document.getElementById('panelOverlay');
+      if (p)  p.classList.add('open');
+      if (ov) ov.classList.add('active');
+    }
+
+    /* ── API helper ── */
+    async function apiFetch(url, method = 'GET', body = null) {
+      const opts = { method, headers: { 'Content-Type': 'application/json' } };
+      if (body) opts.body = JSON.stringify(body);
+      const res = await fetch(url, opts);
+      return res.json();
+    }
+
+    /* ── HTML escape ── */
+    function esc(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    /* ══════════════════════════════════════════════════════
+       SEARCH HISTORY PANEL
+       Reads from /api/history  →  [{query, search_type, searched_at}, …]
+       Each entry is a clickable link that re-runs the search.
+    ══════════════════════════════════════════════════════ */
+
+    const TYPE_ICONS = {
+      title: '🔍',
+      genre: '🎭',
+      cast:  '🎬',
+    };
+
+    let _historyCache  = [];
+    let _historyFilter = 'all';
+
+    function setHistoryFilter(filter, btn) {
+      _historyFilter = filter;
+      document.querySelectorAll('.h-filter-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      _renderHistoryItems();
+    }
+
+    function _renderHistoryItems() {
+      const body = document.getElementById('historyBody');
+      if (!body) return;
+
+      const items = _historyFilter === 'all'
+        ? _historyCache
+        : _historyCache.filter(i => i.search_type === _historyFilter);
+
+      if (!items.length) {
+        body.innerHTML = `
+          <div class="panel-empty">
+            <div class="empty-icon">🕐</div>
+            <p>No ${_historyFilter === 'all' ? '' : _historyFilter + ' '}searches yet</p>
+            <span>Queries you search will appear here</span>
+          </div>`;
+        return;
+      }
+
+      body.innerHTML = items.map(item => {
+        const url  = `/?search_type=${encodeURIComponent(item.search_type)}&query=${encodeURIComponent(item.query)}`;
+        const icon = TYPE_ICONS[item.search_type] || '🔍';
+        return `
+          <a class="history-entry" href="${url}">
+            <div class="history-entry-icon type-${esc(item.search_type)}">${icon}</div>
+            <div class="history-entry-text">
+              <div class="history-entry-query">${esc(item.query)}</div>
+              <div class="history-entry-meta">
+                <span class="h-badge type-${esc(item.search_type)}">${esc(item.search_type)}</span>
+                <span class="history-entry-time">${esc(item.searched_at)}</span>
+              </div>
+            </div>
+            <button
+              class="history-remove-btn"
+              title="Remove"
+              onclick="event.preventDefault(); event.stopPropagation(); removeHistoryItem('${esc(item.query)}', '${esc(item.search_type)}', this)"
+            >✕</button>
+          </a>`;
+      }).join('');
+    }
+
+    async function openHistory() {
+      openPanel('historyPanel');
+      await loadAndRenderHistory();
+    }
+
+    async function loadAndRenderHistory() {
+      const body = document.getElementById('historyBody');
+      if (!body) return;
+      body.innerHTML = '<div class="panel-loading">Loading…</div>';
+      try {
+        _historyCache = await apiFetch('/api/history');
+        _renderHistoryItems();
+      } catch (err) {
+        body.innerHTML = '<div class="panel-loading">Could not load history.</div>';
+      }
+    }
+
+    async function removeHistoryItem(query, search_type, btn) {
+      if (btn) { btn.textContent = '…'; btn.disabled = true; }
+      try {
+        await apiFetch('/api/history/remove', 'POST', { query, search_type });
+        _historyCache = _historyCache.filter(
+          i => !(i.query === query && i.search_type === search_type)
+        );
+        _renderHistoryItems();
+        showToast('Removed from history');
+      } catch {
+        if (btn) { btn.textContent = '✕'; btn.disabled = false; }
+        showToast('Failed to remove');
+      }
+    }
+
+    async function clearHistoryAll() {
+      if (!confirm('Clear your entire search history? This cannot be undone.')) return;
+      try {
+        await apiFetch('/api/history/clear', 'POST');
+        _historyCache = [];
+        _renderHistoryItems();
+        showToast('History cleared');
+      } catch {
+        showToast('Failed to clear history');
+      }
+    }
+
+    /* ══════════════════════════════════════════════════════
+       WATCHLIST
+    ══════════════════════════════════════════════════════ */
+
+    let watchlistTitles = new Set();
+
+    async function loadWatchlistCache() {
+      try {
+        const data = await apiFetch('/api/watchlist');
+        watchlistTitles = new Set(data.map(m => m.title));
+        updateWatchlistBadge();
+        syncWatchlistButtons();
+      } catch {}
+    }
+
+    function updateWatchlistBadge() {
+      const badge = document.getElementById('watchlistBadge');
+      if (!badge) return;
+      const count = watchlistTitles.size;
+      badge.textContent = count;
+      badge.style.display = count > 0 ? 'flex' : 'none';
+    }
+
+    function syncWatchlistButtons() {
+      document.querySelectorAll('.wl-btn[data-title]').forEach(btn => {
+        btn.classList.toggle('wl-saved', watchlistTitles.has(btn.dataset.title));
+      });
+    }
+
+    async function quickToggleWatchlist(title, btn) {
+      const inList   = watchlistTitles.has(title);
+      const endpoint = inList ? '/api/watchlist/remove' : '/api/watchlist/add';
+      try {
+        await apiFetch(endpoint, 'POST', { title });
+        if (inList) watchlistTitles.delete(title);
+        else        watchlistTitles.add(title);
+        updateWatchlistBadge();
+        btn.classList.toggle('wl-saved', !inList);
+        showToast(inList ? 'Removed from watchlist' : '🎬 Added to watchlist!');
+      } catch {
+        showToast('Something went wrong');
+      }
+    }
+
+    async function openWatchlist() {
+      openPanel('watchlistPanel');
+      await renderWatchlist();
+    }
+
+    async function renderWatchlist() {
+      const body = document.getElementById('watchlistBody');
+      if (!body) return;
+      body.innerHTML = '<div class="panel-loading">Loading…</div>';
+      try {
+        const data = await apiFetch('/api/watchlist');
+        if (!data.length) {
+          body.innerHTML = `
+            <div class="panel-empty">
+              <div class="empty-icon">📋</div>
+              <p>Your watchlist is empty</p>
+              <span>Save films to watch later</span>
+            </div>`;
+          return;
+        }
+        body.innerHTML = data.map(m => {
+          const poster = m.poster_url ? `/static/${m.poster_url}` : '';
+          const genre  = (m.genres || '').split('|')[0];
+          return `
+            <div class="panel-item">
+              <div class="panel-item-poster" style="background-image:url('${esc(poster)}')"></div>
+              <div class="panel-item-info">
+                <strong>${esc(m.title)}</strong>
+                <span>${esc(m.year || '')}${genre ? ' · ' + esc(genre) : ''}</span>
+              </div>
+              <button class="panel-remove" onclick="removeWatchlistItem('${esc(m.title)}', this)" title="Remove">✕</button>
+            </div>`;
+        }).join('');
+      } catch {
+        body.innerHTML = '<div class="panel-loading">Could not load watchlist.</div>';
+      }
+    }
+
+    async function removeWatchlistItem(title, btn) {
+      if (btn) btn.textContent = '…';
+      try {
+        await apiFetch('/api/watchlist/remove', 'POST', { title });
+        watchlistTitles.delete(title);
+        updateWatchlistBadge();
+        syncWatchlistButtons();
+        await renderWatchlist();
+        showToast(`"${title}" removed`);
+      } catch {
+        if (btn) btn.textContent = '✕';
+        showToast('Failed to remove');
+      }
+    }
+
+    async function clearWatchlistAll() {
+      if (!confirm('Clear your entire watchlist? This cannot be undone.')) return;
+      try {
+        const data = await apiFetch('/api/watchlist');
+        for (const m of data) {
+          await apiFetch('/api/watchlist/remove', 'POST', { title: m.title });
+          watchlistTitles.delete(m.title);
+        }
+        updateWatchlistBadge();
+        syncWatchlistButtons();
+        await renderWatchlist();
+        showToast('Watchlist cleared');
+      } catch {
+        showToast('Failed to clear watchlist');
+      }
+    }
+
+    /* ══════════════════════════════════════════════════════
+       MODAL
+    ══════════════════════════════════════════════════════ */
+
+    let currentModalIdx = -1;
+
+    function openModal(idx) {
+      const m = movieData[idx];
+      currentModalIdx = idx;
+
+      document.getElementById('modalTitle').textContent = m.title;
+
+      const chipsEl = document.getElementById('modalChips');
+      chipsEl.innerHTML = '';
+      String(m.genres).split('|').forEach(g => {
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        chip.textContent = g.trim();
+        chipsEl.appendChild(chip);
+      });
+      if (m.year) {
+        const chip = document.createElement('span');
+        chip.className = 'chip chip-year';
+        chip.textContent = m.year;
+        chipsEl.appendChild(chip);
+      }
+
+      document.getElementById('modalCast').innerHTML =
+        m.cast ? `<strong>Cast:</strong> ${String(m.cast).replace(/\|/g, ', ')}` : '';
+
+      document.getElementById('modalRating').innerHTML = m.score
+        ? `<div class="modal-score-wrap">
+             <span>Trending Score</span>
+             <div class="modal-score-bar"><div style="width:${m.score}%"></div></div>
+             <strong>${m.score}%</strong>
+           </div>`
+        : '';
+
+      document.getElementById('modalRecommendBtn').href =
+        `/?search_type=title&query=${encodeURIComponent(m.title)}`;
+
+      const iframeSrc = (m.trailerId && m.trailerId.trim())
+        ? `https://www.youtube.com/embed/${m.trailerId}?autoplay=1&mute=1&rel=0`
+        : `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(m.title + ' ' + m.year + ' official trailer')}&autoplay=1&mute=1`;
+      document.getElementById('modalIframe').src = iframeSrc;
+
+      updateModalWatchlistBtn();
+      document.getElementById('movieModal').classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal() {
+      document.getElementById('movieModal').classList.remove('active');
+      document.getElementById('modalIframe').src = '';
+      document.body.style.overflow = '';
+      currentModalIdx = -1;
+    }
+
+    function closeModalOnBackdrop(e) {
+      if (e.target === document.getElementById('movieModal')) closeModal();
+    }
+
+    async function toggleWatchlistFromModal() {
+      if (currentModalIdx < 0) return;
+      const m      = movieData[currentModalIdx];
+      const inList = watchlistTitles.has(m.title);
+      const endpoint = inList ? '/api/watchlist/remove' : '/api/watchlist/add';
+      try {
+        await apiFetch(endpoint, 'POST', { title: m.title });
+        if (inList) watchlistTitles.delete(m.title);
+        else        watchlistTitles.add(m.title);
+        updateWatchlistBadge();
+        syncWatchlistButtons();
+        updateModalWatchlistBtn();
+        showToast(inList ? 'Removed from watchlist' : '🎬 Saved to watchlist!');
+      } catch {
+        showToast('Something went wrong');
+      }
+    }
+
+    function updateModalWatchlistBtn() {
+      if (currentModalIdx < 0) return;
+      const m      = movieData[currentModalIdx];
+      const btn    = document.getElementById('modalWatchlistBtn');
+      const inList = watchlistTitles.has(m.title);
+      btn.classList.toggle('active', inList);
+      btn.innerHTML = inList
+        ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg> Saved`
+        : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg> Add to Watchlist`;
+    }
+
+    /* ══════════════════════════════════════════════════════
+       SEARCH — genre / mood shortcuts
+    ══════════════════════════════════════════════════════ */
+
+    function filterByGenre(genre) {
+      const st = document.getElementById('searchType');
+      const qi = document.getElementById('queryInput');
+      const f  = document.getElementById('mainSearchForm');
+      if (!f || !qi) return;
+      if (st) st.value = 'genre';
+      qi.value = genre;
+      f.submit();
+    }
+
+    function toggleQuery() {
+      const type = document.getElementById('searchType').value;
+      const qi   = document.getElementById('queryInput');
+      const gp   = document.getElementById('genrePicker');
+      if (type === 'genre') {
+        qi.placeholder = 'Or type a genre…';
+        qi.disabled    = false;
+        gp.classList.remove('genre-hidden');
+      } else {
+        qi.placeholder = type === 'cast' ? 'Actor or director name…' : 'Search movies…';
+        qi.disabled    = false;
+        gp.classList.add('genre-hidden');
+      }
+    }
+
+    document.getElementById('genrePicker').addEventListener('change', function () {
+      if (this.value) document.getElementById('queryInput').value = this.value;
+    });
+
+    /* ══════════════════════════════════════════════════════
+       SHARE
+    ══════════════════════════════════════════════════════ */
+
+    function shareMovie(title) {
+      navigator.clipboard.writeText(
+        `${location.origin}/?search_type=title&query=${encodeURIComponent(title)}`
+      );
+      showToast('🔗 Link copied to clipboard!');
+    }
+
+    /* ══════════════════════════════════════════════════════
+       KEYBOARD  &  ?query= URL param
+    ══════════════════════════════════════════════════════ */
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { closeModal(); closePanels(); }
+    });
+
+    /* Support ?movie= (legacy) and ?search_type=&query= (new) */
+    (function handleUrlParams() {
+      const params = new URLSearchParams(location.search);
+      const movie  = params.get('movie');
+      const query  = params.get('query');
+      const stype  = params.get('search_type');
+
+      if (movie || query) {
+        const form = document.getElementById('mainSearchForm');
+        const add  = (n, v) => {
+          const inp = document.createElement('input');
+          inp.type = 'hidden'; inp.name = n; inp.value = v;
+          form.appendChild(inp);
+        };
+        add('search_type', stype || 'title');
+        add('query', query || movie);
+        form.submit();
+      }
+    })();
+
+    /* ── Init ── */
+    toggleQuery();
+    loadWatchlistCache();
+  </script>
+
+</body>
+</html>
