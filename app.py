@@ -6,23 +6,16 @@ from pymongo import MongoClient
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 from scipy.sparse import hstack
-
-app = Flask(__name__)
-# app.secret_key = "cinevault_secret_2024"
 import os
 
-app.secret_key = os.getenv("SECRET_KEY")
-
-MONGO_URI = os.getenv("MONGO_URI")
-client = MongoClient(MONGO_URI)
+app = Flask(__name__)
+app.secret_key = "cinevault_secret_2024"
 
 # =====================================================
 # MongoDB Connection
 # =====================================================
 
-client = MongoClient(
-    "mongodb+srv://cinevault_user:123@cluster0.qehyspy.mongodb.net/?retryWrites=true&w=majority"
-)
+client = MongoClient(os.environ.get("MONGO_URI"))
 
 db = client["cinevault"]
 users_collection      = db["users"]
